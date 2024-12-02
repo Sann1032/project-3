@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return request.auth.token.email == 'jacob.sannon@worldclasscfos.com';
+    }
+
+    function isFirmUser() {
+      return request.auth.token.role == 'firm';
+    }
+
+    function isValidStrategy() {
+      let requiredFields = ['name', 'description', 'estimatedSavings'];
+      return request.resource.data.keys().hasAll(requiredFields);
+    }
+
+    function isValidClient() {
+      let requiredFields = ['personalInfo', 'financialInfo'];
+      return request.resource.data.keys().hasAll(requiredFields);
+    }
+
+    function belongsToFirm(firmId) {
+      return request.auth.token.firmId == firmId;
+    }
+
+    // Firms collection
+    match /firms/{firmId} {
+      allow read: if isAuthenticated() && (belongsToFirm(firmId) || isAdmin());
+      allow write: if isAuthenticated() && isAdmin();
+
+      // Firm's clients subcollection
+      match /clients/{clientId} {
+        allow read: if isAuthenticated() && (belongsToFirm(firmId) || isAdmin());
+        allow create: if isAuthenticated() && belongsToFirm(firmId) && isValidClient();
+        allow update: if isAuthenticated() && belongsToFirm(firmId) && isValidClient();
+        allow delete: if isAuthenticated() && belongsToFirm(firmId);
+      }
+    }
+
+    // Global strategies collection
+    match /strategies/{strategyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isAdmin() && isValidStrategy();
+      allow update: if isAuthenticated() && isAdmin() && isValidStrategy();
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // User-specific strategy settings
+    match /users/{userId}/userStrategies/{strategyId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId)));
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId)));
+    }
+
+    // User settings document
+    match /users/{userId}/settings/strategies {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId)));
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId)));
+    }
+
+    // Selected strategies collection
+    match /users/{userId}/selectedStrategies/{strategyId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId)));
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId)));
+    }
+
+    // Client information
+    match /clients/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId))) && isEmailVerified();
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId))) && isEmailVerified();
+    }
+
+    // Client documents subcollection
+    match /clients/{userId}/documents/{documentId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId))) && isEmailVerified();
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId))) && isEmailVerified();
+    }
+
+    // Client goals subcollection
+    match /clients/{userId}/goals/{goalId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId))) && isEmailVerified();
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin() || (isFirmUser() && belongsToFirm(userId))) && isEmailVerified();
+    }
+
+    // Prevent unauthorized collection access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
