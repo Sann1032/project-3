@@ -95,7 +95,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit, onSwitchToSign
                   }`}
                 >
                   <UserPlus className="w-6 h-6 mx-auto mb-2" />
-                  <span className="text-sm font-medium">Individual</span>
+                  <span className="text-sm font-medium">Individual/Business</span>
                 </button>
                 <button
                   type="button"
